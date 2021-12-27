@@ -14,13 +14,16 @@ import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.S3Object;
+import com.amazonaws.util.IOUtils;
 
+import java.io.*;
+import java.nio.file.StandardCopyOption;
 import java.util.Arrays;
 
 public class SimpleHandler implements RequestHandler<S3Event, Object> {
     public static final String accessKey = System.getenv("accessKey");
     public static final String privateKey =System.getenv("privateKey");
-
+    private static final String tempDir = System.getProperty("java.io.tmpdir");
     @Override
     public String handleRequest(S3Event input, Context context) {
         //loop through s3event records
@@ -44,10 +47,36 @@ public class SimpleHandler implements RequestHandler<S3Event, Object> {
 
                 // Get an object and print its contents.
                 System.out.println("Downloading an object");
+                InputStream inputa = s3Client.getObject(new GetObjectRequest(bucketName,fileName)).getObjectContent();
+                System.out.println("Stream available: " + inputa.available());
                 fullObject = s3Client.getObject(new GetObjectRequest(bucketName,fileName));
+
+                File file = new File(tempDir + "/"+fileName);
+
+                java.nio.file.Files.copy(
+                        inputa,
+                        file.toPath(),
+                        StandardCopyOption.REPLACE_EXISTING);
+
+                // read file
+
+                try (BufferedReader br = new BufferedReader(new FileReader(tempDir + "/"+fileName))) {
+                    String line;
+                    long start = System.currentTimeMillis();
+                    while ((line = br.readLine()) != null) {
+                        System.out.println(line);
+
+                    }
+                    long finish = System.currentTimeMillis();
+                    long timeElapsed = finish - start;
+                    System.out.println("Time taken by buffered reader: " + timeElapsed);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+/*
                 System.out.println("Content-Type: " + fullObject.getObjectMetadata().getContentType());
                 System.out.println("Content: ");
-                System.out.println(Arrays.toString(fullObject.getObjectContent().readAllBytes()));
+                System.out.println(Arrays.toString(fullObject.getObjectContent().readAllBytes()));*/
             } catch(Exception e){
 
             }
